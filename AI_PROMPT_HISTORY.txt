@@ -1,0 +1,56 @@
+**1st Prompt
+
+Act as a Principal Frontend Engineer and UI/UX Designer. I need you to build a modern, production-grade, highly intuitive mobile Order Tracking Screen for an e-commerce application.
+
+Key Requirements & Core Design Principles:
+1. Mobile-First Responsive Design: Optimized specifically for 360px - 430px mobile viewports with clean spacing, typography, clear hierarchy, and smooth visual consistency.
+2. Core Components to Build:
+   - Visual Progress Timeline: A step-by-step interactive timeline showing stages (Processing -> Shipped -> Out for Delivery -> Delivered).
+   - Current Status & ETA: Prominently displayed current state and estimated delivery date/time.
+   - Order & Product Summary: Item details, order ID, payment breakdown/summary.
+   - Support & Action Center: Clear call-to-action (CTA) buttons for contacting support or reporting issues.
+   - Interactive State Switcher: A toggle/tab bar at the top or bottom (for demo purposes) so the evaluator can easily toggle between normal flow and the 3 special edge-case situations.
+
+
+3. The 3 Mandatory Edge Cases (Must Support Dynamic UI Changes):
+   - Situation 1 (Delayed Order): The estimated delivery time has passed. Visually indicate the delay with appropriate warning colors, revised timeline, and a clear next step (e.g., "Track Courier", "Contact Support", "Request Update").
+   - Situation 2 (Delivered but Not Received): System shows 'Delivered', but user reports non-receipt. Provide a prominent action button like "I didn't receive this order" that opens a support modal/flow or provides clear help instructions.
+   - Situation 3 (Tracking Not Available Yet): Order exists, but tracking info isn't available yet. Show an elegant skeleton/placeholder screen with helpful messaging (e.g., "Preparing item, tracking will be updated within 24 hours") rather than an empty or broken UI.
+
+
+4. UI/UX Details:
+   - Handle appropriate loading, empty, and error states gracefully.
+   - Clean iconography (using Lucide icons or similar).
+   - Interactive modals or toast notifications for support actions and reporting issues.
+
+
+5. Tech Stack & Architecture:
+   - React / Next.js with Tailwind CSS.
+   - Use clean, modular, and well-structured code.
+   - Use mock/static JSON data for state management.
+
+
+Please provide the complete, clean, step-by-step React component code along with sample mock data structure so I can directly implement it into my project.
+
+
+
+**2nd Prompt
+
+Order Tracking Screen component to make it fully dynamic and responsive across all screen sizes (Mobile, Tablet, and Desktop) using Tailwind CSS responsive breakpoints (sm, md, lg, xl).
+
+Key Layout & Responsive Requirements:
+1. Breakpoint Behavior:
+   - Mobile (< 640px / default): Single-column stacked layout. Order progress timeline on top, order details and support actions below.
+   - Tablet (sm/md: 640px - 1024px): 2-column or structured container grid layout with optimized padding and clean visual hierarchy.
+   - Desktop (lg/xl: > 1024px): A sleek 2-Column Dashboard Layout:
+     - Left Column: Order details, product items summary, delivery ETA, and action buttons/support.
+     - Right Column: Prominent visual delivery tracking timeline/progress tracker and status updates card.
+2. Maintain Edge Case Support:
+   - Ensure all 3 edge case states (Delayed Order, Delivered but Not Received, and Tracking Not Available Yet) remain fully functional and adapt fluidly across all breakpoints.
+3. UI Polish:
+   - Use Tailwind CSS utility classes effectively (`grid-cols-1 md:grid-cols-2`, `gap-6`, `p-4 md:p-8`).
+   - Clean spacing, fluid typography, and dynamic flex/grid structures so the UI looks like an executive-grade web dashboard on desktop and a smooth app on mobile.
+
+
+Please provide the complete, updated React component code with these responsive layout changes.
+

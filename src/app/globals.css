@@ -1,26 +1,198 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #eef0f4;
+  --foreground: #0f172a;
+  --surface: #ffffff;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@theme {
+  /* Brand — teal/emerald, reads as "in transit / on time" */
+  --color-brand-50: #ecfdf6;
+  --color-brand-100: #d1fae8;
+  --color-brand-200: #a7f3d5;
+  --color-brand-300: #6ee7c0;
+  --color-brand-400: #34d3a3;
+  --color-brand-500: #10b98b;
+  --color-brand-600: #059b74;
+  --color-brand-700: #047c5f;
+  --color-brand-800: #06634d;
+  --color-brand-900: #075140;
+
+  /* Ink — slightly cooler than slate for softer contrast */
+  --color-ink-50: #f8fafc;
+  --color-ink-100: #f1f5f9;
+  --color-ink-200: #e6eaf0;
+  --color-ink-300: #cbd5e1;
+  --color-ink-400: #94a3b8;
+  --color-ink-500: #64748b;
+  --color-ink-600: #475569;
+  --color-ink-700: #334155;
+  --color-ink-800: #1e293b;
+  --color-ink-900: #0f172a;
+
+  --radius-4xl: 1.75rem;
+
+  --animate-shimmer: shimmer 1.7s ease-in-out infinite;
+  @keyframes shimmer {
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  --animate-rise: rise 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  --animate-fade: fade 0.25s ease-out both;
+  @keyframes fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  --animate-halo: halo 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  @keyframes halo {
+    0%,
+    100% {
+      transform: scale(1);
+      opacity: 0.45;
+    }
+    50% {
+      transform: scale(2.1);
+      opacity: 0;
+    }
+  }
+
+  --animate-dash: dash 1.4s linear infinite;
+  @keyframes dash {
+    to {
+      stroke-dashoffset: -24;
+    }
+  }
+
+  --animate-countdown: countdown 3.4s linear forwards;
+  @keyframes countdown {
+    from {
+      transform: scaleX(1);
+    }
+    to {
+      transform: scaleX(0);
+    }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+    font-synthesis-weight: none;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Keep the shell from bouncing, but never trap long-form scroll. */
+  body[data-sheet-open="true"] {
+    overflow: hidden;
+  }
+
+  ::selection {
+    background: var(--color-brand-200);
+  }
+}
+
+@layer components {
+  /* Page canvas: flat on a phone, a soft two-light wash once there is room for
+     a dashboard so the white cards read as surfaces rather than the page. */
+  .app-canvas {
+    background-color: var(--background);
+    background-image:
+      radial-gradient(48rem 32rem at 8% -12%, rgb(255 255 255 / 0.95), transparent 62%),
+      radial-gradient(44rem 34rem at 108% -6%, var(--color-brand-100), transparent 58%);
+    background-repeat: no-repeat;
+  }
+
+  .skeleton {
+    position: relative;
+    overflow: hidden;
+    background-color: var(--color-ink-200);
+  }
+
+  .skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background-image: linear-gradient(
+      90deg,
+      transparent,
+      rgb(255 255 255 / 0.85),
+      transparent
+    );
+    animation: var(--animate-shimmer);
+  }
+
+  /* Segmented fill for stages that are stuck / rescheduled. */
+  .hatch-amber {
+    background-image: repeating-linear-gradient(
+      -45deg,
+      var(--color-amber-400),
+      var(--color-amber-400) 6px,
+      var(--color-amber-300) 6px,
+      var(--color-amber-300) 12px
+    );
+  }
+
+  .hatch-rose {
+    background-image: repeating-linear-gradient(
+      -45deg,
+      var(--color-rose-400),
+      var(--color-rose-400) 6px,
+      var(--color-rose-300) 6px,
+      var(--color-rose-300) 12px
+    );
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
