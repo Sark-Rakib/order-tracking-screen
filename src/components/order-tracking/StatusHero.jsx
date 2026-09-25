@@ -127,7 +127,7 @@ export function StatusHero({ order, sync, onRefresh }) {
             {order.eta.window}
           </p>
           <p className={cn("mt-1 text-[12.5px] font-medium", tone.muted)}>
-            {formatDayLabel(order.eta.dateISO)}
+            {formatDayLabel(order.eta.dateISO, now)}
             <span className="px-1.5 opacity-50">·</span>
             {CONFIDENCE_COPY[order.eta.confidence] ?? "Estimated"}
             {order.eta.revised && order.eta.previousWindow && (

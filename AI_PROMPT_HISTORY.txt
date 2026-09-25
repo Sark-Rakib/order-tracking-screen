@@ -54,3 +54,27 @@ Key Layout & Responsive Requirements:
 
 Please provide the complete, updated React component code with these responsive layout changes.
 
+
+**3rd Prompt
+
+Fix and refactor the Task 1 Order Tracking Screen component to solve two specific bugs while keeping all existing functionality and responsiveness intact:
+
+issues to Fix:
+
+
+1. State Persistence Across Refresh:
+   - Issue: Refreshing the browser resets the view/tab state.
+   - Solution: Persist the active tab/edge-case state (e.g., Normal Flow, Delayed Order, Delivered but Not Received, Tracking Not Available) in localStorage or URL query parameters (e.g., ?state=no-tracking) so that when the evaluator refreshes the page, it stays on the exact same view.
+
+
+2. Fix "Tracking Not Available" (No Tracking) Infinite Loading Bug:
+   - Issue: Opening or switching to the "Tracking Not Available" state keeps showing an endless loading indicator without rendering any content.
+   - Solution: Fix the loading state logic. Provide a clean, non-broken, fallback UI state when tracking is unavailable:
+     - Show clear informative messaging: "Your order has been placed! Tracking details will be updated within 24 hours."
+     - Display a stylish skeleton frame or placeholder card instead of a blank page or infinite spinner.
+     - Include product summary details (Order ID, placed date, items) so the user still gets useful information.
+     - Keep the "Contact Support" button active so the user can reach out if needed.
+
+
+Please provide the updated, full React component code with these state-persistence and fallback UI fixes implemented.
+

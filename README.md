@@ -62,7 +62,7 @@ All four scenarios describe the **same order** (`OT-8471-2290`, 3 items, Visa ·
 | **Normal** | `out_for_delivery` | Brand-gradient hero, "Arriving today 6–8 PM", courier is 12 stops away, live-location chip |
 | **Delayed** | `shipped` | **Amber** hero, `DelayedNotice` banner, revised window with the original struck through, "Held at Gazipur hub" instead of a stop count |
 | **Not got it** | `delivered` | Slate hero, `NotReceivedPanel` with rose accents, proof-of-delivery block, no live location |
-| **No tracking** | `packed` | Skeleton hero where the ETA would be, no courier card at all, 4-step "what happens next" checklist with a notify-me switch |
+| **No tracking** | `packed` | "Your order has been placed!" card with a framed skeleton for the unknown ETA and the order receipt, a named tracking placeholder with a bounded *check again*, and a 4-step "what happens next" checklist with a notify-me switch |
 
 Every timestamp in the mock data is generated **relative to the current request time**, so "arriving today" and "updated 38m ago" are always truthful no matter when you open the page.
 
@@ -71,6 +71,34 @@ Notable behaviours worth trying:
 - In the **Delayed** scenario, pressing refresh in the hero deliberately fails on the first attempt, so the inline `SyncError` state is always reachable. The second attempt succeeds.
 - Submitting the support, missing-parcel, or update-request flows returns a fake ticket number (`SUP-4821`, `CLM-2291`, `UPD-####`) after a 1–1.2s delay, and fires a toast.
 - The primary CTA in the action centre is **scenario-driven**: it becomes "I didn't receive this order" (danger) in the not-received state, "Request an update" (warning) when delayed, and "Ask about this order" when tracking is pending.
+
+### Deep links
+
+Every scenario is addressable, and the address bar is kept in sync as you switch:
+
+| Scenario | URL |
+| --- | --- |
+| Normal | `/?state=normal-flow` |
+| Delayed | `/?state=delayed-order` |
+| Not received | `/?state=delivered-not-received` |
+| No tracking | `/?state=no-tracking` |
+
+The raw internal ids (`?state=tracking-pending`) are still accepted, and an unrecognised value falls back to Normal rather than erroring.
+
+### State persistence
+
+Refreshing used to reset the screen to the default scenario. The active state now survives a refresh, a new tab, and a shared link, via two stores with a fixed precedence:
+
+1. **`?state=` in the URL wins on a fresh load.** `page.js` is a server component, so it reads `searchParams` and renders the requested scenario on the *first paint* — no flash of the default view, no hydration mismatch.
+2. **localStorage is the fallback for a bare `/`**, which is what you get after pressing refresh on a link that never carried the param.
+
+Both are written whenever the scenario changes, so the URL is canonicalised on the way in and the next refresh is URL-driven. `replaceState` is used rather than `pushState`, so clicking through the four demo states does not leave four entries for the evaluator to back through.
+
+Three details make this safe rather than merely working:
+
+- The persisted id is read through **`useSyncExternalStore`** with a `getServerSnapshot` that returns `null`. That is what keeps the first client render byte-identical to the server HTML while still letting React apply the restore immediately afterwards — and it avoids the cascading render that reading storage into state from an effect would cause.
+- The persistence effect **refuses to write while a restore is still in flight**. Effects run after hydration, when the real stored value is readable even though the render used the `null` snapshot; without that guard, a bare visit would persist the default over the very value it was about to restore, and the restore would silently become a no-op.
+- Every storage call is wrapped. Private-mode Safari and hardened browser settings throw on `localStorage` access, and persistence is a convenience rather than a correctness requirement — the URL still carries the state if it fails.
 
 ---
 
@@ -95,7 +123,7 @@ src/
 │   │   ├── SupportActions.jsx        Scenario CTA + contact quick actions
 │   │   ├── DelayedNotice.jsx         Edge case: delayed
 │   │   ├── NotReceivedPanel.jsx      Edge case: delivered but not received
-│   │   ├── TrackingPending.jsx       Edge case: no tracking yet
+│   │   ├── TrackingPending.jsx       Edge case: no tracking yet (3 exports)
 │   │   ├── SyncError.jsx             Inline refresh-failure banner
 │   │   ├── ScenarioSwitcher.jsx      Demo-only state switcher
 │   │   └── sheets/                   5 bottom sheets (see below)
@@ -108,6 +136,7 @@ src/
     ├── format.js          Intl date/number formatting
     ├── clipboard.js       copyText() with a fallback for older Safari
     ├── clock.js           readServerClock()
+    ├── scenarioState.js   ?state= URL + localStorage persistence store
     └── cn.js              Dependency-free class joiner
 ```
 
@@ -151,14 +180,24 @@ Seven components consume `useNow()`. The server renders with the seed value; the
 
 ### State ownership
 
-All client state lives in one `Tracker` component inside `OrderTrackingScreen.jsx` — three slices, nothing more:
+All client state lives in one `Tracker` component inside `OrderTrackingScreen.jsx` — nothing more than the sheet pair, the sync machine, and one override:
 
 ```js
-const [scenarioId, setScenarioId] = useState(initialScenarioId);
 const [sheet, setSheet] = useState(null);            // { name, props } while open
 const [closingSheet, setClosingSheet] = useState(null); // kept mounted for exit transition
 const [sync, setSync] = useState({ status: "idle", at: null, attempts: 0 });
+const [pinnedId, setPinnedId] = useState(null);      // scenario picked by hand
 ```
+
+The active scenario is *derived*, not stored:
+
+```js
+const storedId = useSyncExternalStore(subscribe, getStored, getServerStored);
+const restoredId = initialStateParam ? null : resolveScenarioId(scenarios, storedId);
+const scenarioId = pinnedId ?? restoredId ?? initialScenarioId;
+```
+
+A URL deep link wins, then the persisted value, then the server default — and `pinnedId` short-circuits all three once the user chooses for themselves. See [State persistence](#state-persistence) for why each term is shaped that way.
 
 Feature components receive plain serialisable props and are otherwise dumb, which is what makes them trivially portable. The content wrapper is keyed by scenario (`<main key={scenario.id}>`) so switching states resets scroll and replays the entrance animation.
 
@@ -191,7 +230,7 @@ const SHEETS = {
 | `OrderTrackingScreen` | Orchestrator. Owns state, composes the responsive two-column grid, registers all sheets. |
 | `ScreenHeader` | Sticky blurred bar: back chevron, title + placed-at date, help button, copy-to-clipboard order-ID chip. |
 | `StatusHero` | The gradient status card: pulsing stage pill, ETA headline, delivery window, confidence, struck-through previous window, segmented progress rail, refresh button. |
-| `TrackingTimeline` | Expandable vertical scan timeline with `complete` / `current` / `delayed` / `upcoming` / `pending` states, halo pulse on the current step, and location disclosure. Ships with `TrackingTimelineSkeleton`. |
+| `TrackingTimeline` | Expandable vertical scan timeline with `complete` / `current` / `delayed` / `upcoming` / `pending` states, halo pulse on the current step, and location disclosure. Renders its own empty state when no scans exist yet. |
 | `CourierCard` | Courier partner, agent, rating, copyable tracking number, live-location chip, map/call/chat actions. |
 | `DeliveryCard` | Address `<address>` block, promised vs revised window with confidence, courier leg, "Track on map". |
 | `OrderSummary` | Itemised products with swatch tiles, quantities, order channel, "View invoice". |
@@ -199,7 +238,7 @@ const SHEETS = {
 | `SupportActions` | Scenario-driven primary CTA, "Contact support" / "Report a problem", and a Call/Chat/Email quick-action row. |
 | `DelayedNotice` | **Edge case 1** — amber banner with reason, new window, and next-step CTAs. |
 | `NotReceivedPanel` | **Edge case 2** — "We marked this as delivered" with the courier's proof note and the loudest CTA in the app. |
-| `TrackingPending` | **Edge case 3** — shimmer skeletons for the unknown ETA plus a "what happens next" checklist and a notify-me switch. Exports `PendingStatusCard` and `TrackingPendingPanel`. |
+| `TrackingPending` | **Edge case 3** — the "no tracking yet" fallback. Exports `PendingStatusCard` (reassurance copy, a framed skeleton for the unknown ETA, and the order receipt), `TrackingPlaceholderCard` (the named placeholder for the tracking slot, with a bounded "check again"), and `TrackingPendingPanel` (the "what happens next" checklist). |
 | `SyncError` | Inline `role="alert"` banner for a failed background refresh, with a retry. Never blocks the page. |
 | `ScenarioSwitcher` | Demo-only control. Sticky bottom bar on mobile, inline toolbar from `sm` up. |
 
@@ -318,7 +357,7 @@ The data contract is documented as a JSDoc block at the top of `src/data/orders.
  */
 ```
 
-Helper exports alongside it: `createOrderScenarios(nowMs)`, `getScenario(scenarios, id)`, `getProgress(order)`, and the `STAGES` / `STAGE_INDEX` constants.
+Helper exports alongside it: `createOrderScenarios(nowMs)`, `getScenario(scenarios, id)`, `getProgress(order)`, and — for the deep links — `resolveScenarioId(scenarios, value)` (accepts either a `stateKey` slug or a raw id, returns `null` for anything unknown) and `getStateKey(scenarios, id)`. Each scenario carries a `stateKey` (`normal-flow`, `delayed-order`, `delivered-not-received`, `no-tracking`) used to build the URL.
 
 `src/lib/format.js` holds the ten `Intl`-based formatters used across the UI, including `formatDayLabel` (which anchors to local midnight rather than a rolling 24 hours, so "Yesterday" and "Today" are correct) and `formatTimeUntil`.
 
@@ -383,6 +422,7 @@ Built from a two-part brief, preserved verbatim in [`AI_PROMPT_HISTORY.txt`](./A
 - `public/` still contains the five unused `create-next-app` SVG templates.
 - Three exports are defined but never referenced: `OrderStatusChip` (`ScreenHeader.jsx`), `SkeletonText` and `SkeletonRegion` (`Skeleton.jsx`).
 - The refresh failure in the Delayed scenario is hard-coded to fail on the first attempt so the error state stays reviewable. It is a demo affordance, not a bug, but it would need to go before any real integration.
+- Scenario state lives in `localStorage`, which is per-browser and per-origin. It is right for a single-order demo screen; a real app with several orders would key the store by order id or drop it in favour of the URL alone.
 
 ---
 

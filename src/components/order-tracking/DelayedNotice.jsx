@@ -3,12 +3,14 @@
 import { CalendarClock, ChevronRight, MapPin, MessageCircle, Truck } from "lucide-react";
 import { formatDayLabel } from "@/lib/format";
 import { Button } from "@/components/ui/Button";
+import { useNow } from "@/components/ui/NowProvider";
 
 /**
  * Situation 1 — delayed order.
  * Amber (not red) on purpose: the parcel is fine, the *date* moved.
  */
 export function DelayedNotice({ order, onTrackCourier, onRequestUpdate, onContactSupport }) {
+  const now = useNow();
   const notice = order.notice;
   if (!notice) return null;
 
@@ -37,7 +39,7 @@ export function DelayedNotice({ order, onTrackCourier, onRequestUpdate, onContac
           <dd className="mt-1 text-[13.5px] leading-tight font-bold text-amber-950 tabular-nums">
             {order.eta.window}
           </dd>
-          <dd className="text-[11.5px] font-medium text-amber-800">{formatDayLabel(order.eta.dateISO)}</dd>
+          <dd className="text-[11.5px] font-medium text-amber-800">{formatDayLabel(order.eta.dateISO, now)}</dd>
         </div>
         <div className="rounded-2xl bg-white/80 p-3 ring-1 ring-amber-200/70">
           <dt className="text-[10.5px] font-bold tracking-[0.06em] text-amber-800 uppercase">Reason</dt>

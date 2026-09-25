@@ -1,18 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { usePathname } from "next/navigation";
 import { Headphones, MessageCircle, Navigation, PackageX } from "lucide-react";
-import { getScenario } from "@/data/orders";
+import { getScenario, getStateKey, resolveScenarioId } from "@/data/orders";
 import { copyText } from "@/lib/clipboard";
 import { cn } from "@/lib/cn";
+import {
+  getServerStoredScenarioId,
+  getStoredScenarioId,
+  subscribeToStoredScenarioId,
+  writeStateParam,
+  writeStoredScenarioId,
+} from "@/lib/scenarioState";
 import { ToastProvider, useToast } from "@/components/ui/Toast";
 import { NowProvider } from "@/components/ui/NowProvider";
 import { ScreenHeader } from "@/components/order-tracking/ScreenHeader";
 import { StatusHero } from "@/components/order-tracking/StatusHero";
 import { DelayedNotice } from "@/components/order-tracking/DelayedNotice";
 import { NotReceivedPanel } from "@/components/order-tracking/NotReceivedPanel";
-import { TrackingTimeline, TrackingTimelineSkeleton } from "@/components/order-tracking/TrackingTimeline";
-import { PendingStatusCard, TrackingPendingPanel } from "@/components/order-tracking/TrackingPending";
+import { TrackingTimeline } from "@/components/order-tracking/TrackingTimeline";
+import { PendingStatusCard, TrackingPendingPanel, TrackingPlaceholderCard } from "@/components/order-tracking/TrackingPending";
 import { CourierCard } from "@/components/order-tracking/CourierCard";
 import { DeliveryCard } from "@/components/order-tracking/DeliveryCard";
 import { OrderSummary } from "@/components/order-tracking/OrderSummary";
@@ -46,18 +54,65 @@ const SHEETS = {
   proof: ProofSheet,
 };
 
-function Tracker({ scenarios, initialScenarioId }) {
+function Tracker({ scenarios, initialScenarioId, initialStateParam }) {
   const { toast } = useToast();
-  const [scenarioId, setScenarioId] = useState(initialScenarioId);
+  const pathname = usePathname();
   const [sheet, setSheet] = useState(null); // { name, props } while open
   // Keeps the last sheet mounted for the length of its exit transition.
   const [closingSheet, setClosingSheet] = useState(null);
   const [sync, setSync] = useState({ status: "idle", at: null, attempts: 0 });
 
+  /* ── scenario persistence ────────────────────────────────────────────────────
+   * The URL is the source of truth on a fresh load: the server already read
+   * `?state=` and rendered the right scenario, so a refresh, a new tab and a
+   * copied link all land correctly on the first paint.
+   *
+   * localStorage covers a bare `/`. It is read through `useSyncExternalStore`
+   * rather than copied into state from an effect, because its server snapshot is
+   * `null` — the first client render therefore matches the server HTML exactly,
+   * and React applies the restore on the next pass without a cascading render.
+   *
+   * `pinnedId` is the local override. While it is `null` the persisted value (or
+   * the URL) is in charge; the moment the user picks a scenario by hand, the
+   * picker wins for the rest of this page's life.
+   * ─────────────────────────────────────────────────────────────────────────── */
+
+  const storedId = useSyncExternalStore(
+    subscribeToStoredScenarioId,
+    getStoredScenarioId,
+    getServerStoredScenarioId,
+  );
+  const [pinnedId, setPinnedId] = useState(null);
+
+  // Note the ternary, not `!initialStateParam && …`: a failed `&&` guard yields
+  // `false`, which is not nullish and would win the `??` chain below, silently
+  // pinning every deep link to the first scenario.
+  const restoredId = initialStateParam ? null : resolveScenarioId(scenarios, storedId);
+  const scenarioId = pinnedId ?? restoredId ?? initialScenarioId;
+
   const scenario = getScenario(scenarios, scenarioId);
   const order = scenario.order;
   const syncState = { ...sync, at: sync.at ?? order.lastSyncedAt };
   const { flags } = order;
+
+  // Writing to the two external stores is a genuine synchronisation, so this is
+  // what the effect is for. It also canonicalises the URL on a bare first visit,
+  // which makes the next refresh URL-driven rather than storage-driven.
+  useEffect(() => {
+    // Effects run *after* hydration, so the real stored value is readable here
+    // even though the first render had to use the null server snapshot. That gap
+    // is the dangerous one: writing `scenarioId` blindly on a bare visit would
+    // persist the default over the very value we are one tick away from
+    // restoring, and the restore would then be a no-op. So while a restore is
+    // still in flight, hold off — the effect re-runs the moment it lands and
+    // writes then. A scenario the user picked by hand can never be a pending
+    // restore, which is why `pinnedId` short-circuits the check.
+    const restoreTarget = initialStateParam ? null : resolveScenarioId(scenarios, getStoredScenarioId());
+    if (pinnedId === null && restoreTarget !== null && restoreTarget !== scenarioId) return;
+
+    writeStoredScenarioId(scenarioId);
+    writeStateParam(pathname, getStateKey(scenarios, scenarioId));
+  }, [scenarioId, scenarios, pathname, initialStateParam, pinnedId]);
 
   /* ── actions ──────────────────────────────────────────────────────────── */
 
@@ -103,7 +158,7 @@ function Tracker({ scenarios, initialScenarioId }) {
   const handleScenarioChange = (nextId) => {
     if (nextId === scenarioId) return;
     const next = getScenario(scenarios, nextId);
-    setScenarioId(nextId);
+    setPinnedId(nextId);
     setSheet(null);
     setClosingSheet(null);
     setSync({ status: "idle", at: null, attempts: 0 });
@@ -152,7 +207,11 @@ function Tracker({ scenarios, initialScenarioId }) {
   const statusStack = (
     <div className="order-1 flex min-w-0 flex-col gap-4 sm:gap-5 md:order-2">
       {flags.trackingPending ? (
-        <PendingStatusCard order={order} />
+        <PendingStatusCard
+          order={order}
+          onContactSupport={() => openSheet("support")}
+          onCopyId={() => copyToClipboard(order.id, "Order id copied")}
+        />
       ) : (
         <StatusHero order={order} sync={syncState} onRefresh={handleRefresh} />
       )}
@@ -198,8 +257,21 @@ function Tracker({ scenarios, initialScenarioId }) {
                 }
               />
             </div>
-            <div className="min-w-0" aria-label="Tracking placeholder">
-              <TrackingTimelineSkeleton />
+            {/* No courier has been assigned yet, so the second column is a named
+                placeholder rather than a bare shimmer: a blank card here read as
+                a page stuck loading. */}
+            <div className="min-w-0">
+              <TrackingPlaceholderCard
+                order={order}
+                onContactSupport={() => openSheet("support")}
+                onChecked={() =>
+                  notify(
+                    "Still preparing",
+                    "No new scans yet — we’ll email you the moment your parcel is on the move",
+                    "info",
+                  )
+                }
+              />
             </div>
           </>
         ) : (
@@ -302,11 +374,15 @@ function Tracker({ scenarios, initialScenarioId }) {
   );
 }
 
-export function OrderTrackingScreen({ scenarios, initialScenarioId, initialNow }) {
+export function OrderTrackingScreen({ scenarios, initialScenarioId, initialStateParam, initialNow }) {
   return (
     <NowProvider initialNow={initialNow}>
       <ToastProvider>
-        <Tracker scenarios={scenarios} initialScenarioId={initialScenarioId} />
+        <Tracker
+          scenarios={scenarios}
+          initialScenarioId={initialScenarioId}
+          initialStateParam={initialStateParam}
+        />
       </ToastProvider>
     </NowProvider>
   );

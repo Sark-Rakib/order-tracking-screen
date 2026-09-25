@@ -408,8 +408,8 @@ export function createOrderScenarios(nowMs = Date.now()) {
     notice: null,
     proof: null,
     pending: {
-      headline: "Tracking is not available yet",
-      body: "Your parcel is being prepared at the fulfilment centre. Live tracking switches on the moment the courier scans it — usually within 24 hours of ordering.",
+      headline: "Your order has been placed!",
+      body: "Tracking details will be updated within 24 hours — usually much sooner. We’ll email you the moment the courier scans your parcel, and nothing is needed from you in the meantime.",
       availableByISO: at(9 * HOUR),
       checkpoints: [
         { label: "Order confirmed", state: "done" },
@@ -457,9 +457,13 @@ export function createOrderScenarios(nowMs = Date.now()) {
     ],
   };
 
+  /* `stateKey` is the URL-facing slug for each scenario, so a shared link
+   * reads `?state=no-tracking` instead of leaking the internal id. `?state=`
+   * also accepts the raw `id`, which keeps old links working. */
   return [
     {
       id: "normal",
+      stateKey: "normal-flow",
       tabLabel: "Normal",
       tabIcon: "circle-check",
       title: "On the way",
@@ -468,6 +472,7 @@ export function createOrderScenarios(nowMs = Date.now()) {
     },
     {
       id: "delayed",
+      stateKey: "delayed-order",
       tabLabel: "Delayed",
       tabIcon: "triangle-alert",
       title: "Delayed order",
@@ -476,6 +481,7 @@ export function createOrderScenarios(nowMs = Date.now()) {
     },
     {
       id: "not-received",
+      stateKey: "delivered-not-received",
       tabLabel: "Not got it",
       tabIcon: "package-x",
       title: "Delivered, not received",
@@ -484,6 +490,7 @@ export function createOrderScenarios(nowMs = Date.now()) {
     },
     {
       id: "tracking-pending",
+      stateKey: "no-tracking",
       tabLabel: "No tracking",
       tabIcon: "clock",
       title: "Tracking unavailable",
@@ -495,6 +502,26 @@ export function createOrderScenarios(nowMs = Date.now()) {
 
 export function getScenario(scenarios, id) {
   return scenarios.find((scenario) => scenario.id === id) ?? scenarios[0];
+}
+
+/**
+ * Resolve a `?state=` value to a scenario id, accepting either the URL slug or
+ * the raw id. Returns `null` for anything unrecognised so the caller can fall
+ * back deliberately — a bad deep link should not 404 or crash the screen.
+ */
+export function resolveScenarioId(scenarios, value) {
+  if (typeof value !== "string") return null;
+  const needle = value.trim().toLowerCase();
+  if (!needle) return null;
+  const match = scenarios.find(
+    (scenario) => scenario.stateKey === needle || scenario.id.toLowerCase() === needle,
+  );
+  return match?.id ?? null;
+}
+
+/** The canonical `?state=` value for a scenario id. */
+export function getStateKey(scenarios, id) {
+  return scenarios.find((scenario) => scenario.id === id)?.stateKey ?? null;
 }
 
 /** Progress 0–1 for the hero rail, derived from the current stage. */

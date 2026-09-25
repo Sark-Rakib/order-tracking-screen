@@ -42,7 +42,7 @@ export function ScenarioSwitcher({ scenarios, activeId, onChange }) {
               type="button"
               onClick={() => onChange(scenario.id)}
               aria-pressed={isActive}
-              title={scenario.description}
+              title={`${scenario.description} — ?state=${scenario.stateKey}`}
               className={cn(
                 "flex min-h-[54px] flex-col items-center justify-center gap-1 rounded-2xl px-1 transition-colors",
                 "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600",

@@ -6,7 +6,6 @@ import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { Card, SectionHeading } from "@/components/ui/Card";
 import { Icon } from "@/components/ui/Icon";
-import { Skeleton } from "@/components/ui/Skeleton";
 import { STAGES } from "@/data/orders";
 
 const STATE_STYLES = {
@@ -200,39 +199,6 @@ export function TrackingTimeline({ order, onViewProof }) {
             </li>
           );
         })}
-      </ol>
-    </Card>
-  );
-}
-
-/** Skeleton twin of the timeline — used until the courier publishes scans. */
-export function TrackingTimelineSkeleton() {
-  return (
-    <Card className="@container">
-      <div className="mb-5 space-y-2">
-        <Skeleton className="h-4 w-32" rounded="rounded-lg" />
-        <Skeleton className="h-3 w-52" rounded="rounded-lg" />
-      </div>
-      <ol className="space-y-5 @lg:space-y-6">
-        {STAGES.map((stage, index) => (
-          <li key={stage.key} className="relative flex items-start gap-3">
-            {index < STAGES.length - 1 && (
-              <span
-                aria-hidden="true"
-                className="absolute top-10 left-5 h-[calc(100%+1.25rem)] w-0.5 -translate-x-1/2 rounded-full bg-ink-100 @lg:top-11"
-              />
-            )}
-            <Skeleton className="size-10 shrink-0 @lg:size-11" rounded="rounded-full" />
-            <div className="min-w-0 flex-1 space-y-2 pt-1.5">
-              <div className="flex items-center justify-between gap-3">
-                <Skeleton className="h-3.5 w-32" rounded="rounded-lg" />
-                <Skeleton className="h-3 w-16" rounded="rounded-lg" />
-              </div>
-              <Skeleton className="h-3 w-full" rounded="rounded-lg" />
-              <Skeleton className="h-3 w-4/5" rounded="rounded-lg" />
-            </div>
-          </li>
-        ))}
       </ol>
     </Card>
   );

@@ -5,6 +5,7 @@ import { formatDateTime, formatDayLabel } from "@/lib/format";
 import { Card, SectionHeading } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { useNow } from "@/components/ui/NowProvider";
 
 const CONFIDENCE_COPY = {
   high: "Live ETA from the courier",
@@ -21,6 +22,7 @@ const CONFIDENCE_COPY = {
  * changes the copy rather than the layout.
  */
 export function DeliveryCard({ order, onTrackCourier, onContactSupport }) {
+  const now = useNow();
   const { eta, address, courier, flags, pending } = order;
 
   const windowLabel = flags.delivered ? "Delivered" : flags.delayed ? "Revised window" : "Promised window";
@@ -31,7 +33,7 @@ export function DeliveryCard({ order, onTrackCourier, onContactSupport }) {
         {eta.window}
       </p>
       <p className="mt-1 text-[12px] leading-snug font-medium text-ink-600">
-        {formatDayLabel(eta.dateISO)}
+        {formatDayLabel(eta.dateISO, now)}
         <span className="px-1.5 text-ink-500">·</span>
         {CONFIDENCE_COPY[eta.confidence] ?? CONFIDENCE_COPY.low}
       </p>
@@ -66,7 +68,7 @@ export function DeliveryCard({ order, onTrackCourier, onContactSupport }) {
               <p className="mt-2.5 text-[11.5px] leading-snug text-ink-600">
                 Live tracking is expected{" "}
                 <span className="font-bold text-ink-900">
-                  {pending ? formatDayLabel(pending.availableByISO) : "shortly"}
+                  {pending ? formatDayLabel(pending.availableByISO, now) : "shortly"}
                 </span>
                 .
               </p>
@@ -112,7 +114,7 @@ export function DeliveryCard({ order, onTrackCourier, onContactSupport }) {
                 </span>
                 <span className="flex items-center gap-1">
                   <CalendarClock className="size-3.5" aria-hidden="true" />
-                  ETA {formatDayLabel(eta.dateISO)}
+                  ETA {formatDayLabel(eta.dateISO, now)}
                 </span>
               </>
             )}

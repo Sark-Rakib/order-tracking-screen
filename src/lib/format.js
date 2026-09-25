@@ -39,11 +39,25 @@ export function formatDateTime(value) {
   }).format(toDate(value));
 }
 
-/** "Today" / "Tomorrow" / "Fri, 26 Sep" — friendlier than a raw date. */
-export function formatDayLabel(value) {
+/**
+ * "Today" / "Tomorrow" / "Yesterday" / "Fri, 26 Sep" — friendlier than a raw date.
+ *
+ * Both sides are floored to local midnight before subtracting. Comparing raw
+ * timestamps instead would make the fraction of an elapsed day leak into the
+ * answer, so a 9 PM order would be labelled "Tomorrow" when it is plainly from
+ * today. `Math.round` on the midnight-to-midnight gap absorbs the ±1 hour that
+ * a DST boundary introduces.
+ *
+ * `now` is a parameter rather than a bare `Date.now()` so callers can pass the
+ * shared `useNow()` clock — reading the wall clock during render is exactly what
+ * causes hydration mismatches on relative labels.
+ */
+export function formatDayLabel(value, now = Date.now()) {
   const date = toDate(value);
-  const startOfToday = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const diffDays = Math.round((date.getTime() - startOfToday.getTime()) / DAY);
+  const reference = toDate(now);
+  const startOfDay = (input) =>
+    new Date(input.getFullYear(), input.getMonth(), input.getDate()).getTime();
+  const diffDays = Math.round((startOfDay(date) - startOfDay(reference)) / DAY);
 
   if (diffDays === 0) return "Today";
   if (diffDays === 1) return "Tomorrow";
